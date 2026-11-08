@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 
+from sklearn.linear_model import LogisticRegression
 
 
 # load historical customer data
@@ -19,8 +20,7 @@ def claim_probability(model: object, customer_data: pd.DataFrame) -> np.ndarray:
     :param customer_data: DataFrame containing the customer features
     :return: claim_probabilities, an array containing one claim probability for each customer
     """
-    # TODO
-    pass
+    return model.predict_proba(customer_data)[:, 1]
 
 def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray) -> np.ndarray:
     """
@@ -37,16 +37,15 @@ def calculate_utility(customer_money: np.ndarray) -> np.ndarray:
     """
     Calculate utility from monetary values derived from the customer data using the utility curve U(x) = -263.31 + 22.09 ln(x + 150,000).
 
-    :param customer_data: DataFrame containing the monetary values needed for the utility calculation
-    :return: Array containing one utility value for each customer
+    :param customer_money: Array of monetary amounts in dollars
+    :return: Array containing one utility value for each monetary amount
     """
-    # TODO
-
-    customer_utilities = np.zeroes(customer_money.length)
+    customer_utilities = np.zeros(customer_money.size)
+    i = 0
 
     for money in customer_money:
-        utility = -263.31 + 22.09 * np.log(money + 150,000)
-        np.append(customer_utilities, utility)
+        customer_utilities[i] = (-263.31 + 22.09 * np.log(money + 150000))
+        i+=1
 
     return customer_utilities
 
@@ -63,3 +62,13 @@ def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_pr
     """
     # TODO
     pass
+
+if __name__ == '__main__':
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X=customer_data, y=customer_claims['claim'])
+
+    claim_probabilities = claim_probability(model, customer_data)
+    
+    utilities = calculate_utility(customer_data['coverage_amount'])
+    print(utilities)
+    print(claim_probabilities)
