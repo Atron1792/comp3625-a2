@@ -30,8 +30,28 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
     :param claim_probability: Estimated claim probability for each customer
     :return: premiums, an array containing one premium for each customer
     """
-    # TODO
-    pass
+    margin = 0.1
+    # margin is a place holder value for now, once the model is finished can test a few values to fine tune it.
+    coverage = customer_data['coverage_amount'].to_numpy()
+
+    p = np.asarray(claim_probability)
+
+    # Company side: expected payout is p * coverage, so charge a markup over it
+    expected_cost = p * coverage
+    premiums = expected_cost * (1 + margin)
+
+    # Customer side: expected utility of going uninsured (lottery)
+    # claim -> lose the full coverage amount, no claim -> lose nothing
+    expected_utility_uninsured = (p * calculate_utility(-coverage)+ (1 - p) * calculate_utility(np.zeros(len(coverage))))
+
+    # Utility of insuring: pay the premium for certain, claims are fully covered
+    utility_insured = calculate_utility(-premiums)
+
+    # Premium must give the customer strictly better utility than being uninsured
+    benefits_customer = utility_insured > expected_utility_uninsured
+
+    return np.where(benefits_customer, premiums, np.nan)
+
 
 def calculate_utility(customer_money: np.ndarray) -> np.ndarray:
     """
@@ -72,3 +92,6 @@ if __name__ == '__main__':
     utilities = calculate_utility(customer_data['coverage_amount'])
     print(utilities)
     print(claim_probabilities)
+    premiums = calculate_premium(customer_data, claim_probabilities)
+    print(np.isnan(premiums).sum(), "customers fail the utility check")
+    print("avg expected profit:", np.nanmean(premiums - claim_probabilities * customer_data['coverage_amount']))
