@@ -33,7 +33,7 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
     # TODO
     pass
 
-def calculate_utility(customer_data: pd.DataFrame) -> np.ndarray:
+def calculate_utility(customer_money: np.ndarray) -> np.ndarray:
     """
     Calculate utility from monetary values derived from the customer data using the utility curve U(x) = -263.31 + 22.09 ln(x + 150,000).
 
@@ -41,7 +41,15 @@ def calculate_utility(customer_data: pd.DataFrame) -> np.ndarray:
     :return: Array containing one utility value for each customer
     """
     # TODO
-    pass
+
+    customer_utilities = np.zeroes(customer_money.length)
+
+    for money in customer_money:
+        utility = -263.31 + 22.09 * np.log(money + 150,000)
+        np.append(customer_utilities, utility)
+
+    return customer_utilities
+
 
 def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_probabilities: np.ndarray) -> np.ndarray:
     """
