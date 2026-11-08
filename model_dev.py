@@ -80,8 +80,16 @@ def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_pr
     :param claim_probabilities: Array containing the estimated claim probability for each customer
     :return: Boolean array indicating which customers should be accepted
     """
-    # TODO
-    pass
+    coverage = customer_data['coverage_amount'].to_numpy()
+    expected_profit = premiums - claim_probabilities * coverage
+    value = expected_profit / coverage
+
+    eligible = ~np.isnan(premiums) & (expected_profit > 0)
+
+    selected = np.zeros(len(coverage), dtype=bool)
+    total_coverage = 0
+
+    # TODO: Implement a selection algorithm to choose customers while keeping total coverage under $100 million.
 
 if __name__ == '__main__':
     model = LogisticRegression(max_iter=1000)
