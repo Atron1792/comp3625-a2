@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
 from sklearn.tree import DecisionTreeClassifier
 
 CAPACITY = 100000000
@@ -14,10 +15,12 @@ def hyperparameter_selection(customer_data: pd.DataFrame, customer_claims: pd.Da
     # 66% of the data is better for training compared to 50%, as per the lab 
     train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
 
+    y = customer_claims['claim']
     x_train = customer_data.loc[train_idx]
-    y_train = customer_claims.loc[train_idx]
+    y_train = y.loc[train_idx]
     x_test = customer_data.loc[~train_idx]
-    y_test = customer_claims.loc[~train_idx]
+    y_test = y.loc[~train_idx]
+
 
     best_acc = 0
 
@@ -147,9 +150,19 @@ if __name__ == '__main__':
     customer_claims = pd.read_csv('./data/customer_claims.csv', index_col=None)
     customer_data.columns = customer_data.columns.str.strip()
     customer_claims.columns = customer_claims.columns.str.strip()
+     
+    best = hyperparamater_selection(customer_data, customer_claims)
 
-    model = LogisticRegression(max_iter=1000)
+    model = DecisionTreeClassifier(
+    criterion=best[0],
+    max_depth=int(best[1]),
+    ccp_alpha=float(best[2]),
+    random_state=0,
+)
     model.fit(X=customer_data, y=customer_claims['claim'])
+
+    #model = LogisticRegression(max_iter=1000)
+    #model.fit(X=customer_data, y=customer_claims['claim'])
 
     claim_probabilities = claim_probability(model, customer_data)
     
