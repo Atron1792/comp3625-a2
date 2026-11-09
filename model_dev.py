@@ -12,6 +12,40 @@ customer_claims = pd.read_csv('./data/customer_claims.csv', index_col=None)
 # write your code to develop your agent program here.
 # you can, of course, add additional .py files as needed.
 
+def hyperparamater_selection(customer_data: pd.DataFrame, customer_claims: pd.DataFrame) -> np.array:
+
+    # 66% of the data is better for training compared to 50%, as per the lab 
+    train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
+
+
+    x_train = customer_data.loc[train_idx]
+    y_train = customer_claims.loc[train_idx]
+    x_test = customer_data.loc[~train_idx]
+    y_test = customer_claims.loc[~train_idx]
+
+
+    best_acc = 0
+
+    for criterion in ['gini', 'entropy', 'log_loss']:
+        for max_depth in range(1, 6):
+            for ccp_alpha in np.arange(0, 0.25, 0.01):
+            
+                tree = DecisionTreeClassifier(criterion=criterion, max_depth=max_depth, ccp_alpha=ccp_alpha)
+                tree.fit(x_train, y_train)
+            
+                x_predict = tree.predict(x_test)
+                acc = (x_predict == y_test).mean()
+            
+                if(acc >= best_acc):
+                    criterion_best = criterion
+                    max_depth_best = max_depth
+                    ccp_alpha_best = ccp_alpha
+                    best_acc = acc
+                
+    best_hyperparameters = np.array([criterion_best,max_depth_best,ccp_alpha_best])
+
+    return best_hyperparameters
+
 def claim_probability(model: object, customer_data: pd.DataFrame) -> np.ndarray:
     """
     Estimate the probability that each customer will make an insurance claim.
