@@ -22,34 +22,31 @@ def claim_probability(model: object, customer_data: pd.DataFrame) -> np.ndarray:
     """
     return model.predict_proba(customer_data)[:, 1]
 
-def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray) -> np.ndarray:
+def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray, margin: float = 0.05, z: float = 1.0, sigma: float = 0.01) -> np.ndarray:
     """
     Calculate a premium for each customer that benefits the customer and gives the company positive expected profit.
+    Taking into account the uncertainty in the claim probability, z-score is used to adjust the premium to ensure that we are charging enough to cover potential claims.
+    The more confident in our claim probability estimate, the lower the z-score we can use, and the lower the premium we can charge.
 
     :param customer_data: DataFrame containing customer coverage amounts
     :param claim_probability: Estimated claim probability for each customer
+    :param margin: Thin markup over expected cost, keep small so we can undercut competitors
+    :param z: The z-score for the desired confidence level (default is 1.0 for 68% confidence)
+    :param sigma: The standard deviation of the claim probability (default is 0.01
     :return: premiums, an array containing one premium for each customer
     """
-    margin = 0.1
-    # margin is a place holder value for now, once the model is finished can test a few values to fine tune it.
-    coverage = customer_data['coverage_amount'].to_numpy()
-
-    p = np.asarray(claim_probability)
-
-    # Company side: expected payout is p * coverage, so charge a markup over it
-    expected_cost = p * coverage
-    premiums = expected_cost * (1 + margin)
-
-    # Customer side: expected utility of going uninsured (lottery)
-    # claim -> lose the full coverage amount, no claim -> lose nothing
-    expected_utility_uninsured = (p * calculate_utility(-coverage)+ (1 - p) * calculate_utility(np.zeros(len(coverage))))
-
-    # Utility of insuring: pay the premium for certain, claims are fully covered
-    utility_insured = calculate_utility(-premiums)
-
-    # Premium must give the customer strictly better utility than being uninsured
-    benefits_customer = utility_insured > expected_utility_uninsured
-
+    coverage = customer_data['coverage_amount'].to_numpy(dtype=float)
+    p = np.clip(np.asarray(claim_probability, dtype=float), 0, 1)
+ 
+    p_padded = np.clip(p + z * sigma, 0, 1)
+    premiums = coverage * p_padded * (1 + margin)
+ 
+    # Customer side: lottery of going uninsured vs paying the premium for certain
+    with np.errstate(all='ignore'):
+        eu_uninsured = p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage)))
+        u_insured = calculate_utility(-premiums)
+ 
+    benefits_customer = u_insured > eu_uninsured   # NaN comparisons are False -> excluded
     return np.where(benefits_customer, premiums, np.nan)
 
 
