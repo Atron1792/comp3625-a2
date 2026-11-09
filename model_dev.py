@@ -9,17 +9,15 @@ CAPACITY = 100000000
 # write your code to develop your agent program here.
 # you can, of course, add additional .py files as needed.
 
-def hyperparamater_selection(customer_data: pd.DataFrame, customer_claims: pd.DataFrame) -> np.array:
+def hyperparameter_selection(customer_data: pd.DataFrame, customer_claims: pd.DataFrame) -> np.ndarray:
 
     # 66% of the data is better for training compared to 50%, as per the lab 
     train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
-
 
     x_train = customer_data.loc[train_idx]
     y_train = customer_claims.loc[train_idx]
     x_test = customer_data.loc[~train_idx]
     y_test = customer_claims.loc[~train_idx]
-
 
     best_acc = 0
 
@@ -74,9 +72,9 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
  
     # Customer side: lottery of going uninsured vs paying the premium for certain
     with np.errstate(all='ignore'):
-        expected_utility_uninsured = p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage)))
-        utility_insured = calculate_utility(-premiums)
- 
+        expected_utility_uninsured = (p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage))))
+        utility_insured = (p * calculate_utility(coverage - premiums) + ((1 - p) * calculate_utility(-premiums)))
+
     benefits_customer = utility_insured > expected_utility_uninsured   # NaN comparisons are False -> excluded
     return np.where(benefits_customer, premiums, np.nan)
 
@@ -111,7 +109,7 @@ def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_pr
     coverage = customer_data['coverage_amount'].to_numpy()
     expected_profit = premiums - claim_probabilities * coverage
     eligible = ~np.isnan(premiums) & (expected_profit > 0)
-    n_interations = 20000  # number of iterations for hill climbing, can adjust depending on how long program runs
+    n_iterations = 20000  # number of iterations for hill climbing, can adjust depending on how long program runs
 
     # --- greedy initial solution ---
     score = np.where(eligible, expected_profit / coverage, -np.inf) # replaces an if-else loop
@@ -129,7 +127,7 @@ def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_pr
     in_idx = np.flatnonzero(selected)
     out_idx = np.flatnonzero(eligible & ~selected)
     if len(in_idx) and len(out_idx): # makes sure there are customers to swap in and out
-        for _ in range(n_interations):
+        for _ in range(n_iterations):
             a = rng.integers(len(in_idx)) # random index number of selected customer
             b = rng.integers(len(out_idx)) # random index number of unselected customer
             i = in_idx[a] 
@@ -147,15 +145,17 @@ if __name__ == '__main__':
 # load historical customer data
     customer_data = pd.read_csv('./data/customer_data.csv', index_col=None)
     customer_claims = pd.read_csv('./data/customer_claims.csv', index_col=None)
+    customer_data.columns = customer_data.columns.str.strip()
+    customer_claims.columns = customer_claims.columns.str.strip()
 
     model = LogisticRegression(max_iter=1000)
     model.fit(X=customer_data, y=customer_claims['claim'])
 
     claim_probabilities = claim_probability(model, customer_data)
     
-    utilities = calculate_utility(customer_data['coverage_amount'])
-    print(utilities)
-    print(claim_probabilities)
     premiums = calculate_premium(customer_data, claim_probabilities)
     print(np.isnan(premiums).sum(), "customers fail the utility check")
-    print("avg expected profit:", np.nanmean(premiums - claim_probabilities * customer_data['coverage_amount']))
+    expected_profit = premiums - claim_probabilities * customer_data['coverage_amount']
+    print("accepted customers with non-positive expected profit:",
+          np.sum((~np.isnan(premiums)) & (expected_profit <= 0)))
+    print("avg expected profit:", np.nanmean(expected_profit))
