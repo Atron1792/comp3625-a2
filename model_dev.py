@@ -2,12 +2,9 @@ import pandas as pd
 import numpy as np
 
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 
-
-# load historical customer data
-customer_data = pd.read_csv('./data/customer_data.csv', index_col=None)
-customer_claims = pd.read_csv('./data/customer_claims.csv', index_col=None)
-
+CAPACITY = 100000000
 
 # write your code to develop your agent program here.
 # you can, of course, add additional .py files as needed.
@@ -66,7 +63,7 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
     :param claim_probability: Estimated claim probability for each customer
     :param margin: Thin markup over expected cost, keep small so we can undercut competitors
     :param z: The z-score for the desired confidence level (default is 1.0 for 68% confidence)
-    :param sigma: The standard deviation of the claim probability (default is 0.01
+    :param sigma: The standard deviation of the claim probability (default is 0.01)
     :return: premiums, an array containing one premium for each customer
     """
     coverage = customer_data['coverage_amount'].to_numpy(dtype=float)
@@ -77,10 +74,10 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
  
     # Customer side: lottery of going uninsured vs paying the premium for certain
     with np.errstate(all='ignore'):
-        eu_uninsured = p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage)))
-        u_insured = calculate_utility(-premiums)
+        expected_utility_uninsured = p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage)))
+        utility_insured = calculate_utility(-premiums)
  
-    benefits_customer = u_insured > eu_uninsured   # NaN comparisons are False -> excluded
+    benefits_customer = utility_insured > expected_utility_uninsured   # NaN comparisons are False -> excluded
     return np.where(benefits_customer, premiums, np.nan)
 
 
@@ -113,16 +110,44 @@ def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_pr
     """
     coverage = customer_data['coverage_amount'].to_numpy()
     expected_profit = premiums - claim_probabilities * coverage
-    value = expected_profit / coverage
-
     eligible = ~np.isnan(premiums) & (expected_profit > 0)
+    n_interations = 20000  # number of iterations for hill climbing, can adjust depending on how long program runs
 
+    # --- greedy initial solution ---
+    score = np.where(eligible, expected_profit / coverage, -np.inf) # replaces an if-else loop
     selected = np.zeros(len(coverage), dtype=bool)
-    total_coverage = 0
+    total = 0.0
+    for i in np.argsort(-score):
+        if not eligible[i]:
+            break                      # sorted, so everything after is ineligible too
+        if total + coverage[i] <= CAPACITY:
+            selected[i] = True
+            total += coverage[i]
 
-    # TODO: Implement a selection algorithm to choose customers while keeping total coverage under $100 million.
+    # --- hill climbing: swap one selected customer for one unselected customer, helps gets max value after greedy ---
+    rng = np.random.default_rng(0)#seed set to 0 for reproducibility for now
+    in_idx = np.flatnonzero(selected)
+    out_idx = np.flatnonzero(eligible & ~selected)
+    if len(in_idx) and len(out_idx): # makes sure there are customers to swap in and out
+        for _ in range(n_interations):
+            a = rng.integers(len(in_idx)) # random index number of selected customer
+            b = rng.integers(len(out_idx)) # random index number of unselected customer
+            i = in_idx[a] 
+            j = out_idx[b]
+            gain = expected_profit[j] - expected_profit[i]
+            if gain > 0 and total - coverage[i] + coverage[j] <= CAPACITY:
+                selected[i], selected[j] = False, True
+                total += coverage[j] - coverage[i]
+                in_idx[a], out_idx[b] = j, i
+ 
+    return selected
 
 if __name__ == '__main__':
+    
+# load historical customer data
+    customer_data = pd.read_csv('./data/customer_data.csv', index_col=None)
+    customer_claims = pd.read_csv('./data/customer_claims.csv', index_col=None)
+
     model = LogisticRegression(max_iter=1000)
     model.fit(X=customer_data, y=customer_claims['claim'])
 
