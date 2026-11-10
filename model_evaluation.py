@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from skops.io import load
 
+from model_dev import claim_probability, calculate_premium, select_customers
 
 
 # At grading time, I will call the below function with a dataframe of new potential customers
@@ -19,10 +20,17 @@ def set_premium(customer_data: pd.DataFrame) -> pd.DataFrame:
             desired_customer:  a boolean column indicating which customers you want to take on
             premium:    the amount of the premium to charge each customer
     """
-    model = load('model.skops', trusted=['sklearn.tree._classes.DecisionTreeClassifier'])
+    model = load(
+        'model.skops',
+        trusted=[
+            'sklearn.tree._classes.DecisionTreeClassifier',
+            'sklearn.tree._tree.Tree',
+        ],
+    )
 
      # 1. estimate claim probabilities
-    p_claim = claim_probability(model, customer_data)
+    model_data = customer_data[model.feature_names_in_]
+    p_claim = claim_probability(model, model_data)
  
     # 2. set premiums (NaN = customer fails the utility check)
     premiums = calculate_premium(customer_data, p_claim)

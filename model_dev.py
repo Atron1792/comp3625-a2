@@ -12,13 +12,13 @@ MODEL = DecisionTreeClassifier(random_state=0)
 
 def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.ndarray:
     """
-    
 
-    :param 
-    :param 
-    :param 
+
     :param
-    :return: 
+    :param
+    :param
+    :param
+    :return:
     """
     MODEL.fit(x_train,y_train)
     x_predict = MODEL.predict(x_test)
@@ -33,33 +33,33 @@ def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.D
 
     for feature in all_features:
         features_to_keep.remove(feature)
-    
+
         MODEL.fit(x_train[features_to_keep], y_train)
         x_predict = MODEL.predict(x_test[features_to_keep])
         new_acc = (x_predict == y_test).mean()
-    
+
         if new_acc < prev_acc:
             features_to_keep.append(feature)
         else:
             prev_acc = new_acc
 
-    print('feature acc', prev_acc)
+    print('best feature acc:', prev_acc)
     return features_to_keep
 
 def hyperparameter_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.ndarray:
     """
-    
 
-    :param 
-    :param 
-    :return: 
+
+    :param
+    :param
+    :return:
     """
     best_acc = 0
 
     for criterion in ['gini', 'entropy', 'log_loss']:
         for max_depth in range(1, 6):
             for ccp_alpha in np.arange(0, 0.10, 0.01):
-            
+
                 tree = DecisionTreeClassifier(
                     criterion=criterion,
                     max_depth=max_depth,
@@ -67,19 +67,19 @@ def hyperparameter_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_tes
                     random_state=0
                 )
                 tree.fit(x_train, y_train)
-            
+
                 x_predict = tree.predict(x_test)
                 acc = (x_predict == y_test).mean()
-            
+
                 if(acc >= best_acc):
                     criterion_best = criterion
                     max_depth_best = max_depth
                     ccp_alpha_best = ccp_alpha
                     best_acc = acc
-                
+
     best_hyperparameters = np.array([criterion_best,max_depth_best,ccp_alpha_best])
     print('best hyperparameters acc:', best_acc)
-    
+
     return best_hyperparameters
 
 def claim_probability(model: object, customer_data: pd.DataFrame) -> np.ndarray:
@@ -107,10 +107,10 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
     """
     coverage = customer_data['coverage_amount'].to_numpy(dtype=float)
     p = np.clip(np.asarray(claim_probability, dtype=float), 0, 1)
- 
+
     p_padded = np.clip(p + z * sigma, 0, 1)
     premiums = coverage * p_padded * (1 + margin)
- 
+
     # Customer side: lottery of going uninsured vs paying the premium for certain
     with np.errstate(all='ignore'):
         expected_utility_uninsured = (p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage))))
@@ -171,14 +171,14 @@ def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_pr
         for _ in range(n_iterations):
             a = rng.integers(len(in_idx)) # random index number of selected customer
             b = rng.integers(len(out_idx)) # random index number of unselected customer
-            i = in_idx[a] 
+            i = in_idx[a]
             j = out_idx[b]
             gain = expected_profit[j] - expected_profit[i]
             if gain > 0 and total - coverage[i] + coverage[j] <= CAPACITY:
                 selected[i], selected[j] = False, True
                 total += coverage[j] - coverage[i]
                 in_idx[a], out_idx[b] = j, i
- 
+
     return selected
 
 if __name__ == '__main__':
@@ -187,8 +187,8 @@ if __name__ == '__main__':
     customer_claims = pd.read_csv('./data/customer_claims.csv', index_col=None)
     customer_data.columns = customer_data.columns.str.strip()
     customer_claims.columns = customer_claims.columns.str.strip()
-    
-    # 66% of the data is better for training compared to 50%, as per the lab 
+
+    # 66% of the data is better for training compared to 50%, as per the lab
     train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
 
     y = customer_claims['claim']
@@ -206,19 +206,19 @@ if __name__ == '__main__':
     ccp_alpha=float(best_hyper[2]),
     random_state=0,
     )
-    
+
     model.fit(X=customer_data[best_features], y=customer_claims['claim'])
 
     claim_probabilities = claim_probability(model, customer_data[best_features])
-    
+
     print('selected features:', len(best_features), best_features)
     print('best hyperparameters:', best_hyper)
-    
+
     premiums = calculate_premium(customer_data, claim_probabilities)
     print(np.isnan(premiums).sum(), "customers fail the utility check")
     expected_profit = premiums - claim_probabilities * customer_data['coverage_amount']
     print("accepted customers with non-positive expected profit:",
           np.sum((~np.isnan(premiums)) & (expected_profit <= 0)))
     print("avg expected profit:", np.nanmean(expected_profit))
-    
+
     dump(model, 'model.skops')
