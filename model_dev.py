@@ -5,6 +5,7 @@ from skops.io import dump
 from sklearn.tree import DecisionTreeClassifier
 
 CAPACITY = 100000000
+MODEL = DecisionTreeClassifier(random_state=0)
 
 # write your code to develop your agent program here.
 # you can, of course, add additional .py files as needed.
@@ -19,9 +20,8 @@ def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.D
     :param
     :return: 
     """
-
-    model.fit(x_train,y_train)
-    x_predict = model.predict(x_test)
+    MODEL.fit(x_train,y_train)
+    x_predict = MODEL.predict(x_test)
     all_test_acc = (x_predict == y_test).mean()
 
     print('base test:', all_test_acc)
@@ -34,8 +34,8 @@ def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.D
     for feature in all_features:
         features_to_keep.remove(feature)
     
-        model.fit(x_train[features_to_keep], y_train)
-        x_predict = model.predict(x_test[features_to_keep])
+        MODEL.fit(x_train[features_to_keep], y_train)
+        x_predict = MODEL.predict(x_test[features_to_keep])
         new_acc = (x_predict == y_test).mean()
     
         if new_acc < prev_acc:
@@ -43,9 +43,10 @@ def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.D
         else:
             prev_acc = new_acc
 
+    print('feature acc', prev_acc)
     return features_to_keep
 
-def hyperparameter_selection(customer_data: pd.DataFrame, customer_claims: pd.DataFrame) -> np.ndarray:
+def hyperparameter_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.ndarray:
     """
     
 
@@ -53,22 +54,11 @@ def hyperparameter_selection(customer_data: pd.DataFrame, customer_claims: pd.Da
     :param 
     :return: 
     """
-
-    # 66% of the data is better for training compared to 50%, as per the lab 
-    train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
-
-    y = customer_claims['claim']
-    x_train = customer_data.loc[train_idx]
-    y_train = y.loc[train_idx]
-    x_test = customer_data.loc[~train_idx]
-    y_test = y.loc[~train_idx]
-
-
     best_acc = 0
 
     for criterion in ['gini', 'entropy', 'log_loss']:
         for max_depth in range(1, 6):
-            for ccp_alpha in np.arange(0, 0.25, 0.01):
+            for ccp_alpha in np.arange(0, 0.10, 0.01):
             
                 tree = DecisionTreeClassifier(
                     criterion=criterion,
@@ -88,7 +78,8 @@ def hyperparameter_selection(customer_data: pd.DataFrame, customer_claims: pd.Da
                     best_acc = acc
                 
     best_hyperparameters = np.array([criterion_best,max_depth_best,ccp_alpha_best])
-
+    print('best hyperparameters acc:', best_acc)
+    
     return best_hyperparameters
 
 def claim_probability(model: object, customer_data: pd.DataFrame) -> np.ndarray:
@@ -123,7 +114,7 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
     # Customer side: lottery of going uninsured vs paying the premium for certain
     with np.errstate(all='ignore'):
         expected_utility_uninsured = (p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage))))
-        utility_insured = utility_insured = calculate_utility(-premiums)
+        utility_insured = calculate_utility(-premiums)
 
     benefits_customer = utility_insured > expected_utility_uninsured   # NaN comparisons are False -> excluded
     return np.where(benefits_customer, premiums, np.nan)
@@ -191,25 +182,37 @@ def select_customers(customer_data: pd.DataFrame, premiums: np.ndarray, claim_pr
     return selected
 
 if __name__ == '__main__':
-    
-# load historical customer data
+    # load historical customer data
     customer_data = pd.read_csv('./data/customer_data.csv', index_col=None)
     customer_claims = pd.read_csv('./data/customer_claims.csv', index_col=None)
     customer_data.columns = customer_data.columns.str.strip()
     customer_claims.columns = customer_claims.columns.str.strip()
-     
-    best = hyperparameter_selection(customer_data, customer_claims)
+    
+    # 66% of the data is better for training compared to 50%, as per the lab 
+    train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
+
+    y = customer_claims['claim']
+    x_train = customer_data.loc[train_idx]
+    y_train = y.loc[train_idx]
+    x_test = customer_data.loc[~train_idx]
+    y_test = y.loc[~train_idx]
+
+    best_features = feature_selection(x_train, y_train, x_test, y_test)
+    best_hyper = hyperparameter_selection(x_train[best_features], y_train, x_test[best_features], y_test)
 
     model = DecisionTreeClassifier(
-    criterion=best[0],
-    max_depth=int(best[1]),
-    ccp_alpha=float(best[2]),
+    criterion=best_hyper[0],
+    max_depth=int(best_hyper[1]),
+    ccp_alpha=float(best_hyper[2]),
     random_state=0,
     )
     
-    model.fit(X=customer_data, y=customer_claims['claim'])
+    model.fit(X=customer_data[best_features], y=customer_claims['claim'])
 
-    claim_probabilities = claim_probability(model, customer_data)
+    claim_probabilities = claim_probability(model, customer_data[best_features])
+    
+    print('selected features:', len(best_features), best_features)
+    print('best hyperparameters:', best_hyper)
     
     premiums = calculate_premium(customer_data, claim_probabilities)
     print(np.isnan(premiums).sum(), "customers fail the utility check")
