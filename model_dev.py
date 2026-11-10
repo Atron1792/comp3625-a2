@@ -6,37 +6,35 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import confusion_matrix
 
 CAPACITY = 100000000
-MODEL = DecisionTreeClassifier(random_state=0)
+BASE_MODEL = DecisionTreeClassifier(random_state=0)
 
 # write your code to develop your agent program here.
 # you can, of course, add additional .py files as needed.
 
-def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.ndarray:
+def feature_selection(x_train: pd.DataFrame, y_train: pd.Series, x_test: pd.DataFrame, y_test: pd.Series) -> list[str]:
     """
+    Select a subset of features using backward elimination.
 
-
-    :param
-    :param
-    :param
-    :param
-    :return:
+    :param x_train: Training feature values.
+    :param y_train: Training target labels.
+    :param x_test: Validation feature values.
+    :param y_test: Validation target labels.
+    :return: A list of names of the selected features in the order retained.
     """
-    MODEL.fit(x_train,y_train)
-    x_predict = MODEL.predict(x_test)
+    BASE_MODEL.fit(x_train,y_train)
+    x_predict = BASE_MODEL.predict(x_test)
     all_test_acc = (x_predict == y_test).mean()
 
     print('base test:', all_test_acc)
 
     features_to_keep = list(x_train.columns)
-
-    all_features = features_to_keep.copy()
     prev_acc = all_test_acc
 
-    for feature in all_features:
+    for feature in list(features_to_keep):
         features_to_keep.remove(feature)
 
-        MODEL.fit(x_train[features_to_keep], y_train)
-        x_predict = MODEL.predict(x_test[features_to_keep])
+        BASE_MODEL.fit(x_train[features_to_keep], y_train)
+        x_predict = BASE_MODEL.predict(x_test[features_to_keep])
         new_acc = (x_predict == y_test).mean()
 
         if new_acc < prev_acc:
@@ -47,13 +45,15 @@ def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.D
     print('best feature acc:', prev_acc)
     return features_to_keep
 
-def hyperparameter_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.ndarray:
+def hyperparameter_selection(x_train: pd.DataFrame, y_train: pd.Series, x_test: pd.DataFrame, y_test: pd.Series) -> tuple[str, int, float]:
     """
+    Find decision-tree hyperparameters with the highest validation accuracy.
 
-
-    :param
-    :param
-    :return:
+    :param x_train: Training feature values.
+    :param y_train: Training target labels.
+    :param x_test: Validation feature values.
+    :param y_test: Validation target labels.
+    :return: A tuple containing the selected criterion, maximum depth, and cost-complexity pruning alpha, in that order.
     """
     best_acc = 0
 
@@ -72,13 +72,13 @@ def hyperparameter_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_tes
                 x_predict = tree.predict(x_test)
                 acc = (x_predict == y_test).mean()
 
-                if(acc >= best_acc):
+                if acc >= best_acc:
                     criterion_best = criterion
                     max_depth_best = max_depth
                     ccp_alpha_best = ccp_alpha
                     best_acc = acc
 
-    best_hyperparameters = np.array([criterion_best,max_depth_best,ccp_alpha_best])
+    best_hyperparameters = (criterion_best,max_depth_best,ccp_alpha_best)
     print('best hyperparameters acc:', best_acc)
 
     return best_hyperparameters
@@ -117,7 +117,8 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
         expected_utility_uninsured = (p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage))))
         utility_insured = calculate_utility(-premiums)
 
-    benefits_customer = utility_insured > expected_utility_uninsured   # NaN comparisons are False -> excluded
+    # NaN comparisons are False, so those customers are excluded.
+    benefits_customer = utility_insured > expected_utility_uninsured
     return np.where(benefits_customer, premiums, np.nan)
 
 
