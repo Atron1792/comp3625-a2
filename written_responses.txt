@@ -1,7 +1,7 @@
 Question 0:
 Report the line number(s) where your program performs utility calculations
 
-
+The calulate_utility function is line 124-138, specifically the utility calculation is performed on line 135.
 
 
 Question 1:
@@ -15,8 +15,15 @@ Refer to specific line numbers where these things are measured.
 Question 2:
 How confident are you that your model has not overfit the historical data? Why?
 
-
+We're pretty confident that our model is not overfitting the data. If the data was overfit we would be getting high accuracy 
+on the training data, but it would struggle to generalize when it sees new data. Since our model has similar accuracies between
+test and training data sets it is not overfit.
 
 
 Question 3:
 In this assignment scenario, which party is acting according to the principle of maximum expected utililty? The customer? Your program? Both?
+
+Both the customer and the program are acting according to the principle of maximum expected utility. The customer is trying to maximize their
+utility by purchasing insurance such that the expected utility lost by purchasing the insurance is not greater than the expected utlity lost
+by going uninsured and being forced to pay out of pocket. The program is trying to maximize its expected utility by offering an insurance premium
+that allows them to make a profit, at minimum, while not charging so much that a customer does not accept the premium.
