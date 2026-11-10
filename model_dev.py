@@ -1,9 +1,7 @@
 import pandas as pd
 import numpy as np
-import joblib
+from skops.io import dump
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import log_loss
 from sklearn.tree import DecisionTreeClassifier
 
 CAPACITY = 100000000
@@ -11,7 +9,16 @@ CAPACITY = 100000000
 # write your code to develop your agent program here.
 # you can, of course, add additional .py files as needed.
 
-def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.array:
+def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.DataFrame, y_test: pd.DataFrame) -> np.ndarray:
+    """
+    
+
+    :param 
+    :param 
+    :param 
+    :param
+    :return: 
+    """
 
     model.fit(x_train,y_train)
     x_predict = model.predict(x_test)
@@ -39,6 +46,13 @@ def feature_selection(x_train: pd.DataFrame, y_train: pd.DataFrame, x_test: pd.D
     return features_to_keep
 
 def hyperparameter_selection(customer_data: pd.DataFrame, customer_claims: pd.DataFrame) -> np.ndarray:
+    """
+    
+
+    :param 
+    :param 
+    :return: 
+    """
 
     # 66% of the data is better for training compared to 50%, as per the lab 
     train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
@@ -56,7 +70,12 @@ def hyperparameter_selection(customer_data: pd.DataFrame, customer_claims: pd.Da
         for max_depth in range(1, 6):
             for ccp_alpha in np.arange(0, 0.25, 0.01):
             
-                tree = DecisionTreeClassifier(criterion=criterion, max_depth=max_depth, ccp_alpha=ccp_alpha)
+                tree = DecisionTreeClassifier(
+                    criterion=criterion,
+                    max_depth=max_depth,
+                    ccp_alpha=ccp_alpha,
+                    random_state=0
+                )
                 tree.fit(x_train, y_train)
             
                 x_predict = tree.predict(x_test)
@@ -179,18 +198,16 @@ if __name__ == '__main__':
     customer_data.columns = customer_data.columns.str.strip()
     customer_claims.columns = customer_claims.columns.str.strip()
      
-    best = hyperparamater_selection(customer_data, customer_claims)
+    best = hyperparameter_selection(customer_data, customer_claims)
 
     model = DecisionTreeClassifier(
     criterion=best[0],
     max_depth=int(best[1]),
     ccp_alpha=float(best[2]),
     random_state=0,
-)
+    )
+    
     model.fit(X=customer_data, y=customer_claims['claim'])
-
-    #model = LogisticRegression(max_iter=1000)
-    #model.fit(X=customer_data, y=customer_claims['claim'])
 
     claim_probabilities = claim_probability(model, customer_data)
     
@@ -201,4 +218,4 @@ if __name__ == '__main__':
           np.sum((~np.isnan(premiums)) & (expected_profit <= 0)))
     print("avg expected profit:", np.nanmean(expected_profit))
     
-    joblib.dump(model, 'model.joblib')
+    dump(model, 'model.skops')

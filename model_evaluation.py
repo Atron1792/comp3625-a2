@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import joblib
+from skops.io import load
 
 
 
@@ -19,5 +19,4 @@ def set_premium(customer_data: pd.DataFrame) -> pd.DataFrame:
             desired_customer:  a boolean column indicating which customers you want to take on
             premium:    the amount of the premium to charge each customer
     """
-    model = joblib.load('model.joblib')
-    p = model.predict_proba(customer_data)[:, 1]
+    model = load('model.skops', trusted=['sklearn.tree._classes.DecisionTreeClassifier'])
