@@ -93,34 +93,39 @@ def claim_probability(model: object, customer_data: pd.DataFrame) -> np.ndarray:
     """
     return model.predict_proba(customer_data)[:, 1]
 
-def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray, margin: float = 0.05, z: float = 1.0, sigma: float = 0.01) -> np.ndarray:
+def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray, margin: float = 0.05, padding: float = 0.01) -> np.ndarray:
     """
-    Calculate a premium for each customer that benefits the customer and gives the company positive expected profit.
-    Taking into account the uncertainty in the claim probability, z-score is used to adjust the premium to ensure that we are charging enough to cover potential claims.
-    The more confident in our claim probability estimate, the lower the z-score we can use, and the lower the premium we can charge.
+    Set a premium for each customer, and exclude customers who would not buy at that price.
 
+      - p: the tree's estimated claim probability. coverage * p is the expected cost of insuring the customer.
+      - padding: a flat amount added to p before pricing, as the winner's-curse buffer above. It adds the
+        same number of dollars per dollar of coverage to every customer, whatever their risk, so it is a
+        large percentage markup on low-risk customers and a small one on high-risk customers. It is kept
+        small (default 0.01) so low-risk customers are not priced out; a larger padding would raise profit
+        per customer but lose them to competitors.
+      - margin: a markup applied to the whole padded price. Unlike the padding, it scales with the
+        customer's risk, so it earns more dollars on risky, high-coverage customers. It is kept small
+        so we can undercut competitors.
+ 
     :param customer_data: DataFrame containing customer coverage amounts
     :param claim_probability: Estimated claim probability for each customer
-    :param margin: Thin markup over expected cost, keep small so we can undercut competitors
-    :param z: The z-score for the desired confidence level (default is 1.0 for 68% confidence)
-    :param sigma: The standard deviation of the claim probability (default is 0.01)
-    :return: premiums, an array containing one premium for each customer
+    :param margin: Markup on the padded price, proportional to the customer's risk
+    :param padding: Flat amount added to each claim probability before pricing
+    :return: premiums, an array with one premium per customer, or NaN where the customer would not buy
     """
     coverage = customer_data['coverage_amount'].to_numpy(dtype=float)
     p = np.clip(np.asarray(claim_probability, dtype=float), 0, 1)
-
-    p_padded = np.clip(p + z * sigma, 0, 1)
+ 
+    p_padded = np.clip(p + padding, 0, 1)
     premiums = coverage * p_padded * (1 + margin)
-
+ 
     # Customer side: lottery of going uninsured vs paying the premium for certain
     with np.errstate(all='ignore'):
         expected_utility_uninsured = (p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage))))
         utility_insured = calculate_utility(-premiums)
-
-    # NaN comparisons are False, so those customers are excluded.
-    benefits_customer = utility_insured > expected_utility_uninsured
+ 
+    benefits_customer = utility_insured > expected_utility_uninsured   # NaN comparisons are False -> excluded
     return np.where(benefits_customer, premiums, np.nan)
-
 
 def calculate_utility(customer_money: np.ndarray) -> np.ndarray:
     """
