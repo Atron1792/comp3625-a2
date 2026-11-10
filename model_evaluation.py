@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import joblib
 
+from model_dev import claim_probability, calculate_premium, select_customers
+
 
 
 # At grading time, I will call the below function with a dataframe of new potential customers
@@ -21,3 +23,31 @@ def set_premium(customer_data: pd.DataFrame) -> pd.DataFrame:
     """
     model = joblib.load('model.joblib')
     p = model.predict_proba(customer_data)[:, 1]
+
+     # 1. estimate claim probabilities
+    p_claim = claim_probability(model, customer_data)
+ 
+    # 2. set premiums (NaN = customer fails the utility check)
+    premiums = calculate_premium(customer_data, p_claim)
+ 
+    # 3. choose customers within the $100M coverage limit
+    desired = select_customers(customer_data, premiums, p_claim)
+ 
+    # customers we don't want still need a numeric premium in the output;
+    # use the plain expected cost where the utility check produced NaN
+    coverage = customer_data['coverage_amount'].to_numpy(dtype=float)
+    premiums = np.where(np.isnan(premiums), p_claim * coverage, premiums)
+ 
+    return pd.DataFrame({
+        'p_claim': p_claim,
+        'desired_customer': desired.astype(bool),
+        'premium': premiums,
+    }, index=customer_data.index)
+
+
+if __name__ == '__main__':
+    df = pd.read_csv('./data/customer_data.csv').sample(5000, random_state=1)
+    out = set_premium(df)
+    print(out.head())
+    print(out['desired_customer'].sum(), df.loc[out['desired_customer'], 'coverage_amount'].sum())
+    print(out['p_claim'].nunique(), "distinct probabilities")
