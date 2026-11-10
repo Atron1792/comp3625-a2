@@ -49,8 +49,8 @@ def set_premium(customer_data: pd.DataFrame) -> pd.DataFrame:
         'premium': premiums,
     }, index=customer_data.index)
 
-
-if __name__ == '__main__':
+# for testing
+#if __name__ == '__main__':
     df = pd.read_csv('./data/customer_data.csv').sample(5000, random_state=1)
     out = set_premium(df)
     print(out.head())

@@ -58,8 +58,8 @@ def hyperparameter_selection(x_train: pd.DataFrame, y_train: pd.Series, x_test: 
     best_acc = 0
 
     for criterion in ['gini', 'entropy', 'log_loss']:
-        for max_depth in range(1, 6):
-            for ccp_alpha in np.arange(0, 0.10, 0.01):
+        for max_depth in range(1, 10):
+            for ccp_alpha in np.arange(0, 0.25, 0.01):
 
                 tree = DecisionTreeClassifier(
                     criterion=criterion,
@@ -191,7 +191,8 @@ if __name__ == '__main__':
     customer_claims.columns = customer_claims.columns.str.strip()
 
     # 66% of the data is better for training compared to 50%, as per the lab
-    train_idx = np.random.random(size=customer_data.shape[0]) < 0.66
+    rng = np.random.default_rng(0)
+    train_idx = rng.random(len(customer_data)) < 0.66
 
     y = customer_claims['claim']
     x_train = customer_data.loc[train_idx]

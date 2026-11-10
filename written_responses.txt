@@ -8,8 +8,8 @@ Question 1:
 The supervised learning model you used: report its accuracy, sensitivity, and specificity in predicting claims.
 Refer to specific line numbers where these things are measured.
 
-
-
+accuracy: 0.6819090748691408 sensitivity: 0.2137876939166812 specificity: 0.920291141487662
+These metrics are calculated on line 207-222.
 
 
 Question 2:
