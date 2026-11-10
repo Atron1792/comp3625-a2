@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import joblib
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
@@ -172,3 +173,5 @@ if __name__ == '__main__':
     print("accepted customers with non-positive expected profit:",
           np.sum((~np.isnan(premiums)) & (expected_profit <= 0)))
     print("avg expected profit:", np.nanmean(expected_profit))
+    
+    joblib.dump(model, 'model.joblib')
