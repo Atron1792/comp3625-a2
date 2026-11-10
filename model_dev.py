@@ -123,7 +123,7 @@ def calculate_premium(customer_data: pd.DataFrame, claim_probability: np.ndarray
     # Customer side: lottery of going uninsured vs paying the premium for certain
     with np.errstate(all='ignore'):
         expected_utility_uninsured = (p * calculate_utility(-coverage) + (1 - p) * calculate_utility(np.zeros(len(coverage))))
-        utility_insured = (p * calculate_utility(coverage - premiums) + ((1 - p) * calculate_utility(-premiums)))
+        utility_insured = utility_insured = calculate_utility(-premiums)
 
     benefits_customer = utility_insured > expected_utility_uninsured   # NaN comparisons are False -> excluded
     return np.where(benefits_customer, premiums, np.nan)
